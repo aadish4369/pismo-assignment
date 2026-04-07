@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -29,9 +28,8 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 func TestCreateAndGetAccount(t *testing.T) {
 	r := setupTestRouter(t)
 
-	body := []byte(`{"document_number":"12345678900"}`)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader([]byte(`{"document_number":"12345678900"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusCreated, w.Code)
@@ -44,12 +42,14 @@ func TestCreateAndGetAccount(t *testing.T) {
 	req2 := httptest.NewRequest(http.MethodGet, "/accounts/"+strconv.FormatUint(uint64(id), 10), nil)
 	r.ServeHTTP(w2, req2)
 	require.Equal(t, http.StatusOK, w2.Code)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &got))
+	require.Equal(t, float64(0), got["balance"])
 }
 
 func TestCreateTransaction_SignNormalization(t *testing.T) {
 	r := setupTestRouter(t)
 
-	// Create account first.
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader([]byte(`{"document_number":"99999999999"}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -60,7 +60,18 @@ func TestCreateTransaction_SignNormalization(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
 	accountID := uint(created["account_id"].(float64))
 
-	// Purchase/withdraw types must be stored as negative.
+	credit := map[string]any{
+		"account_id":        accountID,
+		"operation_type_id": 4,
+		"amount":            200.0,
+	}
+	cb, _ := json.Marshal(credit)
+	wc := httptest.NewRecorder()
+	reqc := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(cb))
+	reqc.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(wc, reqc)
+	require.Equal(t, http.StatusCreated, wc.Code)
+
 	purchase := map[string]any{
 		"account_id":        accountID,
 		"operation_type_id": 1,
@@ -78,10 +89,37 @@ func TestCreateTransaction_SignNormalization(t *testing.T) {
 	require.Equal(t, -123.45, txResp["amount"])
 }
 
-func TestCreateInstallmentTransaction_AndPayEMI(t *testing.T) {
+func TestInsufficientBalance(t *testing.T) {
 	r := setupTestRouter(t)
 
-	// Create account.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader([]byte(`{"document_number":"88888888888"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	accountID := uint(created["account_id"].(float64))
+
+	purchase := map[string]any{
+		"account_id":        accountID,
+		"operation_type_id": 1,
+		"amount":            10.0,
+	}
+	pb, _ := json.Marshal(purchase)
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(pb))
+	req2.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w2, req2)
+	require.Equal(t, http.StatusBadRequest, w2.Code)
+	var errBody map[string]any
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &errBody))
+	require.Equal(t, "insufficient balance", errBody["error"])
+}
+
+func TestInstallmentPurchaseSameDebitBehaviorAsNormalPurchase(t *testing.T) {
+	r := setupTestRouter(t)
+
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader([]byte(`{"document_number":"11122233344"}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -91,30 +129,102 @@ func TestCreateInstallmentTransaction_AndPayEMI(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
 	accountID := uint(created["account_id"].(float64))
 
-	// Create installment purchase transaction (operation_type_id=2).
-	now := time.Now().UTC().Format("2006-01-02")
-	instReq := map[string]any{
+	credit := map[string]any{
+		"account_id":        accountID,
+		"operation_type_id": 4,
+		"amount":            500.0,
+	}
+	cb, _ := json.Marshal(credit)
+	wc := httptest.NewRecorder()
+	reqc := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(cb))
+	reqc.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(wc, reqc)
+	require.Equal(t, http.StatusCreated, wc.Code)
+
+	inst := map[string]any{
 		"account_id":        accountID,
 		"operation_type_id": 2,
-		"amount":            300.00,
+		"amount":            150.0,
 		"tenure":            3,
-		"start_date":        now,
 	}
-	ib, _ := json.Marshal(instReq)
+	ib, _ := json.Marshal(inst)
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(ib))
 	req2.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w2, req2)
 	require.Equal(t, http.StatusCreated, w2.Code)
 
-	var instResp map[string]any
-	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &instResp))
-	installmentID := uint(instResp["installment_id"].(float64))
-	require.Equal(t, float64(3), instResp["remaining_emis"])
+	var txResp map[string]any
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &txResp))
+	require.Equal(t, float64(2), txResp["operation_type_id"])
+	require.Equal(t, -150.0, txResp["amount"])
+	plan, ok := txResp["installment_plan"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, float64(3), plan["tenure"])
+	require.Equal(t, float64(0), plan["paid_emis"])
+	require.Equal(t, float64(3), plan["remaining_emis"])
 
-	// Pay first EMI.
+	wBal := httptest.NewRecorder()
+	reqBal := httptest.NewRequest(http.MethodGet, "/accounts/"+strconv.FormatUint(uint64(accountID), 10), nil)
+	r.ServeHTTP(wBal, reqBal)
+	require.Equal(t, http.StatusOK, wBal.Code)
+	var bal map[string]any
+	require.NoError(t, json.Unmarshal(wBal.Body.Bytes(), &bal))
+	require.Equal(t, float64(350), bal["balance"])
+	plans, ok := bal["active_installment_plans"].([]any)
+	require.True(t, ok)
+	require.Len(t, plans, 1)
+}
+
+func TestPayInstallmentCreditsBalance(t *testing.T) {
+	r := setupTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewReader([]byte(`{"document_number":"22233344455"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	accountID := uint(created["account_id"].(float64))
+
+	credit := map[string]any{"account_id": accountID, "operation_type_id": 4, "amount": 300.0}
+	cb, _ := json.Marshal(credit)
+	wc := httptest.NewRecorder()
+	reqc := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(cb))
+	reqc.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(wc, reqc)
+	require.Equal(t, http.StatusCreated, wc.Code)
+
+	inst := map[string]any{
+		"account_id": accountID, "operation_type_id": 2, "amount": 300.0, "tenure": 3,
+	}
+	ib, _ := json.Marshal(inst)
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(ib))
+	req2.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w2, req2)
+	require.Equal(t, http.StatusCreated, w2.Code)
+	var txResp map[string]any
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &txResp))
+	plan := txResp["installment_plan"].(map[string]any)
+	planID := uint(plan["plan_id"].(float64))
+
 	w3 := httptest.NewRecorder()
-	req3 := httptest.NewRequest(http.MethodPost, "/installments/"+strconv.FormatUint(uint64(installmentID), 10)+"/pay", nil)
+	req3 := httptest.NewRequest(http.MethodPost,
+		"/accounts/"+strconv.FormatUint(uint64(accountID), 10)+"/installments/"+strconv.FormatUint(uint64(planID), 10)+"/pay", nil)
 	r.ServeHTTP(w3, req3)
 	require.Equal(t, http.StatusOK, w3.Code)
+
+	var payResp map[string]any
+	require.NoError(t, json.Unmarshal(w3.Body.Bytes(), &payResp))
+	require.Equal(t, float64(1), payResp["paid_emis"])
+	require.Equal(t, float64(2), payResp["remaining_emis"])
+
+	wBal := httptest.NewRecorder()
+	reqBal := httptest.NewRequest(http.MethodGet, "/accounts/"+strconv.FormatUint(uint64(accountID), 10), nil)
+	r.ServeHTTP(wBal, reqBal)
+	var bal map[string]any
+	require.NoError(t, json.Unmarshal(wBal.Body.Bytes(), &bal))
+	require.Equal(t, float64(100), bal["balance"])
 }

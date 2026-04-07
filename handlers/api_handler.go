@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -21,7 +20,7 @@ func NewAPIHandler() *APIHandler {
 
 // CreateAccount godoc
 // @Summary      Create account
-// @Description  Creates an account for a document number (CPF-style identifier).
+// @Description  Creates an account for a document number.
 // @Tags         accounts
 // @Accept       json
 // @Produce      json
@@ -50,7 +49,7 @@ func (h *APIHandler) CreateAccount(c *gin.Context) {
 
 // GetAccount godoc
 // @Summary      Get account
-// @Description  Returns account id and document number.
+// @Description  Returns account id, document number, balance, and active installment plans (incomplete).
 // @Tags         accounts
 // @Produce      json
 // @Param        accountId  path      int  true  "Account ID"
@@ -65,21 +64,28 @@ func (h *APIHandler) GetAccount(c *gin.Context) {
 		return
 	}
 
-	account, err := h.svc.GetAccount(uint(id))
+	account, balance, plans, err := h.svc.GetAccount(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
+	items := make([]InstallmentPlanItem, 0, len(plans))
+	for i := range plans {
+		items = append(items, installmentPlanItemFromModel(&plans[i]))
+	}
+
 	c.JSON(http.StatusOK, GetAccountResponse{
-		AccountID:      account.ID,
-		DocumentNumber: account.DocumentNumber,
+		AccountID:              account.ID,
+		DocumentNumber:         account.DocumentNumber,
+		Balance:                balance,
+		ActiveInstallmentPlans: items,
 	})
 }
 
 // CreateTransaction godoc
 // @Summary      Create transaction
-// @Description  Records a transaction. Amounts are normalized: types 1–3 stored negative, type 4 positive. For operation_type_id=2, pass tenure and start_date to create an installment plan.
+// @Description  Types 1–3 debit (stored negative), type 4 credit (stored positive). For type 2, optional tenure (>1) creates an installment plan; omit tenure for a lump debit only. EMI repayment: POST .../installments/.../pay (credit voucher). Fails if balance would go negative on debits.
 // @Tags         transactions
 // @Accept       json
 // @Produce      json
@@ -94,22 +100,11 @@ func (h *APIHandler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	var startDate *time.Time
-	if req.StartDate != "" {
-		parsed, err := time.Parse("2006-01-02", req.StartDate)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_date"})
-			return
-		}
-		startDate = &parsed
-	}
-
-	tx, inst, err := h.svc.CreateTransaction(
+	tx, plan, err := h.svc.CreateTransaction(
 		req.AccountID,
 		models.OperationType(req.OperationTypeID),
 		req.Amount,
 		req.Tenure,
-		startDate,
 	)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -123,34 +118,54 @@ func (h *APIHandler) CreateTransaction(c *gin.Context) {
 		Amount:          float64(tx.AmountInPaisa) / 100.0,
 		EventDate:       tx.EventDate,
 	}
-	if inst != nil {
-		emi := float64(inst.EMIAmountInPaisa) / 100.0
-		rem := inst.RemainingEMIs
-		resp.InstallmentID = &inst.ID
-		resp.EMIAmount = &emi
-		resp.RemainingEMIs = &rem
+	if plan != nil {
+		item := installmentPlanItemFromModel(plan)
+		resp.InstallmentPlan = &item
 	}
 	c.JSON(http.StatusCreated, resp)
 }
 
-// PayEMI godoc
-// @Summary      Pay one EMI
-// @Description  Marks one installment payment and records a withdrawal transaction for that EMI amount.
-// @Tags         installments
+// PayInstallment godoc
+// @Summary      Pay one installment
+// @Description  Records a credit voucher for this EMI and advances the plan (does not change the original purchase debit).
+// @Tags         accounts
 // @Produce      json
-// @Param        id   path      int  true  "Installment ID"
-// @Success      200  {object}  PayEMIResponse
-// @Failure      400  {object}  ErrorResponse
-// @Router       /installments/{id}/pay [post]
-func (h *APIHandler) PayEMI(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+// @Param        accountId  path      int  true  "Account ID"
+// @Param        planId     path      int  true  "Installment plan ID"
+// @Success      200        {object}  PayInstallmentResponse
+// @Failure      400        {object}  ErrorResponse
+// @Router       /accounts/{accountId}/installments/{planId}/pay [post]
+func (h *APIHandler) PayInstallment(c *gin.Context) {
+	accountID, err := strconv.Atoi(c.Param("accountId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid accountId"})
 		return
 	}
-	if err := h.svc.DeductInstallmentEMI(uint(id)); err != nil {
+	planID, err := strconv.Atoi(c.Param("planId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid planId"})
+		return
+	}
+
+	plan, err := h.svc.PayInstallmentEMI(uint(accountID), uint(planID))
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, PayEMIResponse{Status: "emi_paid"})
+
+	c.JSON(http.StatusOK, PayInstallmentResponse{
+		PaidEMIs:      plan.PaidEMIs,
+		RemainingEMIs: plan.Tenure - plan.PaidEMIs,
+	})
+}
+
+func installmentPlanItemFromModel(p *models.InstallmentPlan) InstallmentPlanItem {
+	return InstallmentPlanItem{
+		PlanID:        p.ID,
+		TotalAmount:   float64(p.TotalPaisa) / 100.0,
+		Tenure:        p.Tenure,
+		PaidEMIs:      p.PaidEMIs,
+		RemainingEMIs: p.Tenure - p.PaidEMIs,
+		NextDueDate:   p.NextDueDate,
+	}
 }

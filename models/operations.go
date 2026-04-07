@@ -7,5 +7,4 @@ const (
 	InstallmentPurchase OperationType = 2
 	Withdraw            OperationType = 3
 	CreditVoucher       OperationType = 4
-	InstallmentEMI      OperationType = 5
 )

@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   handlers.CreateAccountRequest:
     properties:
@@ -26,9 +25,6 @@ definitions:
       operation_type_id:
         example: 1
         type: integer
-      start_date:
-        example: "2026-04-01"
-        type: string
       tenure:
         example: 3
         type: integer
@@ -39,15 +35,11 @@ definitions:
         type: integer
       amount:
         type: number
-      emi_amount:
-        type: number
       event_date:
         type: string
-      installment_id:
-        type: integer
+      installment_plan:
+        $ref: '#/definitions/handlers.InstallmentPlanItem'
       operation_type_id:
-        type: integer
-      remaining_emis:
         type: integer
       transaction_id:
         type: integer
@@ -63,35 +55,47 @@ definitions:
       account_id:
         example: 1
         type: integer
+      active_installment_plans:
+        items:
+          $ref: '#/definitions/handlers.InstallmentPlanItem'
+        type: array
+      balance:
+        example: 0
+        type: number
       document_number:
         example: "12345678900"
         type: string
     type: object
-  handlers.PayEMIResponse:
+  handlers.InstallmentPlanItem:
     properties:
-      status:
-        example: emi_paid
+      next_due_date:
         type: string
+      paid_emis:
+        type: integer
+      plan_id:
+        type: integer
+      remaining_emis:
+        type: integer
+      tenure:
+        type: integer
+      total_amount:
+        type: number
     type: object
-externalDocs:
-  description: OpenAPI
-  url: https://swagger.io/resources/open-api/
-host: localhost:8080
+  handlers.PayInstallmentResponse:
+    properties:
+      paid_emis:
+        type: integer
+      remaining_emis:
+        type: integer
+    type: object
 info:
-  contact:
-    name: API Support
-  description: Accounts, transactions (signed amounts per operation type), and optional
-    installment EMI extension.
-  license:
-    name: MIT
-  title: Pismo transactions API
-  version: "1.0"
+  contact: {}
 paths:
   /accounts:
     post:
       consumes:
       - application/json
-      description: Creates an account for a document number (CPF-style identifier).
+      description: Creates an account for a document number.
       parameters:
       - description: Document number
         in: body
@@ -115,7 +119,8 @@ paths:
       - accounts
   /accounts/{accountId}:
     get:
-      description: Returns account id and document number.
+      description: Returns account id, document number, balance, and active installment
+        plans (incomplete).
       parameters:
       - description: Account ID
         in: path
@@ -140,14 +145,19 @@ paths:
       summary: Get account
       tags:
       - accounts
-  /installments/{id}/pay:
+  /accounts/{accountId}/installments/{planId}/pay:
     post:
-      description: Marks one installment payment and records a withdrawal transaction
-        for that EMI amount.
+      description: Records a credit voucher for this EMI and advances the plan (does
+        not change the original purchase debit).
       parameters:
-      - description: Installment ID
+      - description: Account ID
         in: path
-        name: id
+        name: accountId
+        required: true
+        type: integer
+      - description: Installment plan ID
+        in: path
+        name: planId
         required: true
         type: integer
       produces:
@@ -156,21 +166,22 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.PayEMIResponse'
+            $ref: '#/definitions/handlers.PayInstallmentResponse'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Pay one EMI
+      summary: Pay one installment
       tags:
-      - installments
+      - accounts
   /transactions:
     post:
       consumes:
       - application/json
-      description: 'Records a transaction. Amounts are normalized: types 1–3 stored
-        negative, type 4 positive. For operation_type_id=2, pass tenure and start_date
-        to create an installment plan.'
+      description: 'Types 1–3 debit (stored negative), type 4 credit (stored positive).
+        For type 2, optional tenure (>1) creates an installment plan; omit tenure
+        for a lump debit only. EMI repayment: POST .../installments/.../pay (credit
+        voucher). Fails if balance would go negative on debits.'
       parameters:
       - description: Transaction payload
         in: body

@@ -12,6 +12,4 @@ type Transaction struct {
 
 	AmountInPaisa int64 `gorm:"not null"`
 	EventDate     time.Time
-
-	InstallmentId *uint
 }

@@ -25,3 +25,12 @@ func (r *TransactionRepository) GetByAccountID(accountID uint) ([]models.Transac
 
 	return txs, err
 }
+
+func (r *TransactionRepository) SumAmountInPaisaByAccountID(accountID uint) (int64, error) {
+	var sum int64
+	err := db.DB.Model(&models.Transaction{}).
+		Where("account_id = ?", accountID).
+		Select("COALESCE(SUM(amount_in_paisa), 0)").
+		Scan(&sum).Error
+	return sum, err
+}

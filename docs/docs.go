@@ -9,12 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {
-            "name": "API Support"
-        },
-        "license": {
-            "name": "MIT"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -22,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/accounts": {
             "post": {
-                "description": "Creates an account for a document number (CPF-style identifier).",
+                "description": "Creates an account for a document number.",
                 "consumes": [
                     "application/json"
                 ],
@@ -62,7 +57,7 @@ const docTemplate = `{
         },
         "/accounts/{accountId}": {
             "get": {
-                "description": "Returns account id and document number.",
+                "description": "Returns account id, document number, balance, and active installment plans (incomplete).",
                 "produces": [
                     "application/json"
                 ],
@@ -101,21 +96,28 @@ const docTemplate = `{
                 }
             }
         },
-        "/installments/{id}/pay": {
+        "/accounts/{accountId}/installments/{planId}/pay": {
             "post": {
-                "description": "Marks one installment payment and records a withdrawal transaction for that EMI amount.",
+                "description": "Records a credit voucher for this EMI and advances the plan (does not change the original purchase debit).",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "installments"
+                    "accounts"
                 ],
-                "summary": "Pay one EMI",
+                "summary": "Pay one installment",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Installment ID",
-                        "name": "id",
+                        "description": "Account ID",
+                        "name": "accountId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Installment plan ID",
+                        "name": "planId",
                         "in": "path",
                         "required": true
                     }
@@ -124,7 +126,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.PayEMIResponse"
+                            "$ref": "#/definitions/handlers.PayInstallmentResponse"
                         }
                     },
                     "400": {
@@ -138,7 +140,7 @@ const docTemplate = `{
         },
         "/transactions": {
             "post": {
-                "description": "Records a transaction. Amounts are normalized: types 1–3 stored negative, type 4 positive. For operation_type_id=2, pass tenure and start_date to create an installment plan.",
+                "description": "Types 1–3 debit (stored negative), type 4 credit (stored positive). For type 2, optional tenure (\u003e1) creates an installment plan; omit tenure for a lump debit only. EMI repayment: POST .../installments/.../pay (credit voucher). Fails if balance would go negative on debits.",
                 "consumes": [
                     "application/json"
                 ],
@@ -215,10 +217,6 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "start_date": {
-                    "type": "string",
-                    "example": "2026-04-01"
-                },
                 "tenure": {
                     "type": "integer",
                     "example": 3
@@ -234,19 +232,13 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
-                "emi_amount": {
-                    "type": "number"
-                },
                 "event_date": {
                     "type": "string"
                 },
-                "installment_id": {
-                    "type": "integer"
+                "installment_plan": {
+                    "$ref": "#/definitions/handlers.InstallmentPlanItem"
                 },
                 "operation_type_id": {
-                    "type": "integer"
-                },
-                "remaining_emis": {
                     "type": "integer"
                 },
                 "transaction_id": {
@@ -270,36 +262,67 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "active_installment_plans": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.InstallmentPlanItem"
+                    }
+                },
+                "balance": {
+                    "type": "number",
+                    "example": 0
+                },
                 "document_number": {
                     "type": "string",
                     "example": "12345678900"
                 }
             }
         },
-        "handlers.PayEMIResponse": {
+        "handlers.InstallmentPlanItem": {
             "type": "object",
             "properties": {
-                "status": {
-                    "type": "string",
-                    "example": "emi_paid"
+                "next_due_date": {
+                    "type": "string"
+                },
+                "paid_emis": {
+                    "type": "integer"
+                },
+                "plan_id": {
+                    "type": "integer"
+                },
+                "remaining_emis": {
+                    "type": "integer"
+                },
+                "tenure": {
+                    "type": "integer"
+                },
+                "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "handlers.PayInstallmentResponse": {
+            "type": "object",
+            "properties": {
+                "paid_emis": {
+                    "type": "integer"
+                },
+                "remaining_emis": {
+                    "type": "integer"
                 }
             }
         }
-    },
-    "externalDocs": {
-        "description": "OpenAPI",
-        "url": "https://swagger.io/resources/open-api/"
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "localhost:8080",
-	BasePath:         "/",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Pismo transactions API",
-	Description:      "Accounts, transactions (signed amounts per operation type), and optional installment EMI extension.",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

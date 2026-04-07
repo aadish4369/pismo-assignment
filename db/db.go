@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -34,9 +35,25 @@ func ConnectWithDSN(dsn string) error {
 			}
 		}
 	}
+	dsn = sqliteWritableDSN(dsn)
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	return err
+}
+
+// sqliteWritableDSN forces read-write mode for file paths. Avoids rare "readonly database"
+// cases with relative paths and makes journal files land next to the DB file predictably.
+func sqliteWritableDSN(dsn string) string {
+	if dsn == ":memory:" || strings.HasPrefix(dsn, "file:") {
+		return dsn
+	}
+	abs, err := filepath.Abs(dsn)
+	if err != nil {
+		return dsn
+	}
+	// mode=rwc: open for reading and writing, create if missing
+	// journal_mode=DELETE: avoid -wal/-shm sidecars (simpler permissions story)
+	return "file:" + filepath.ToSlash(abs) + "?mode=rwc&_pragma=busy_timeout(5000)&_pragma=journal_mode(DELETE)"
 }
 
 // Migrate runs AutoMigrate for all domain models.
@@ -44,6 +61,6 @@ func Migrate() error {
 	return DB.AutoMigrate(
 		&models.Account{},
 		&models.Transaction{},
-		&models.Installment{},
+		&models.InstallmentPlan{},
 	)
 }
