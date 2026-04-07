@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+app.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+.idea
+.vscode
+coverage.out

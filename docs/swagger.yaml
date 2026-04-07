@@ -1,0 +1,195 @@
+basePath: /
+definitions:
+  handlers.CreateAccountRequest:
+    properties:
+      document_number:
+        example: "12345678900"
+        type: string
+    type: object
+  handlers.CreateAccountResponse:
+    properties:
+      account_id:
+        example: 1
+        type: integer
+      document_number:
+        example: "12345678900"
+        type: string
+    type: object
+  handlers.CreateTransactionRequest:
+    properties:
+      account_id:
+        example: 1
+        type: integer
+      amount:
+        example: 123.45
+        type: number
+      operation_type_id:
+        example: 1
+        type: integer
+      start_date:
+        example: "2026-04-01"
+        type: string
+      tenure:
+        example: 3
+        type: integer
+    type: object
+  handlers.CreateTransactionResponse:
+    properties:
+      account_id:
+        type: integer
+      amount:
+        type: number
+      emi_amount:
+        type: number
+      event_date:
+        type: string
+      installment_id:
+        type: integer
+      operation_type_id:
+        type: integer
+      remaining_emis:
+        type: integer
+      transaction_id:
+        type: integer
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      error:
+        example: record not found
+        type: string
+    type: object
+  handlers.GetAccountResponse:
+    properties:
+      account_id:
+        example: 1
+        type: integer
+      document_number:
+        example: "12345678900"
+        type: string
+    type: object
+  handlers.PayEMIResponse:
+    properties:
+      status:
+        example: emi_paid
+        type: string
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8080
+info:
+  contact:
+    name: API Support
+  description: Accounts, transactions (signed amounts per operation type), and optional
+    installment EMI extension.
+  license:
+    name: MIT
+  title: Pismo transactions API
+  version: "1.0"
+paths:
+  /accounts:
+    post:
+      consumes:
+      - application/json
+      description: Creates an account for a document number (CPF-style identifier).
+      parameters:
+      - description: Document number
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.CreateAccountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create account
+      tags:
+      - accounts
+  /accounts/{accountId}:
+    get:
+      description: Returns account id and document number.
+      parameters:
+      - description: Account ID
+        in: path
+        name: accountId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetAccountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get account
+      tags:
+      - accounts
+  /installments/{id}/pay:
+    post:
+      description: Marks one installment payment and records a withdrawal transaction
+        for that EMI amount.
+      parameters:
+      - description: Installment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.PayEMIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Pay one EMI
+      tags:
+      - installments
+  /transactions:
+    post:
+      consumes:
+      - application/json
+      description: 'Records a transaction. Amounts are normalized: types 1–3 stored
+        negative, type 4 positive. For operation_type_id=2, pass tenure and start_date
+        to create an installment plan.'
+      parameters:
+      - description: Transaction payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.CreateTransactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create transaction
+      tags:
+      - transactions
+swagger: "2.0"
