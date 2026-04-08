@@ -1,14 +1,14 @@
 # Pismo — assignment
 
-REST API for accounts and transactions (Go, Gin, GORM, SQLite).
+REST API for accounts and transactions (Go, Gin, GORM, SQLite). JSON amounts are in rupees (stored as paisa in the DB).
 
-## What’s included
-
-- Create / fetch accounts (`document_number`)
-- Post transactions by operation type (amounts in rupees; stored in paisa)
-- Optional installment flow: type `2` with `tenure` debits the first EMI and creates a plan; `POST /accounts/:accountId/installments/:planId/next` records further EMIs
-
-Operation types: `1` purchase, `2` installment purchase, `3` withdrawal, `4` credit.
+| API | Description |
+|-----|-------------|
+| `GET /ping` | Liveness check (`{"message":"pong"}`). |
+| `POST /accounts` | Create account; body `document_number`. |
+| `GET /accounts/:accountId` | Account balance and active installment plans. |
+| `POST /transactions` | Create transaction: `operation_type_id` **1** purchase, **2** installment (requires `tenure`; first EMI + plan), **3** withdrawal, **4** credit. |
+| `POST /accounts/:accountId/installments/:planId/next` | Debit next EMI on an installment plan. |
 
 ## Run
 
@@ -16,17 +16,11 @@ Operation types: `1` purchase, `2` installment purchase, `3` withdrawal, `4` cre
 go run .
 ```
 
-Defaults: port `8080` (`PORT`), DB `data/app.db` (`DATABASE_PATH`).
+Defaults: port `8080` (`PORT`), database `data/app.db` (`DATABASE_PATH`).
 
 ## API docs (Swagger)
 
 <http://localhost:8080/swagger/index.html>
-
-Regenerate OpenAPI after changing handlers:
-
-```bash
-go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -o docs --parseInternal
-```
 
 ## Tests
 
