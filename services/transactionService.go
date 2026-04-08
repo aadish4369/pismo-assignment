@@ -35,7 +35,6 @@ func (s *TransactionService) Create(
 	accountID uint,
 	opID models.OperationType,
 	amountInPaisa int64,
-	installmentPlanID *uint,
 ) (*models.Transaction, error) {
 	if opID < models.NormalPurchase || opID > models.CreditVoucher {
 		return nil, errors.New("invalid operation_type_id")
@@ -46,28 +45,22 @@ func (s *TransactionService) Create(
 	if err != nil {
 		return nil, err
 	}
-	// Ledger balance must never go below zero after this transaction.
 	resultingBalance := current + amount
 	if resultingBalance < 0 {
 		return nil, errors.New("insufficient balance")
 	}
 
 	tx := &models.Transaction{
-		AccountId:         accountID,
-		OperationTypeId:   opID,
-		AmountInPaisa:     amount,
-		EventDate:         time.Now().UTC(),
-		InstallmentPlanId: installmentPlanID,
+		AccountId:       accountID,
+		OperationTypeId: opID,
+		AmountInPaisa:   amount,
+		EventDate:       time.Now().UTC(),
 	}
 
 	if err := s.txRepo.Create(tx); err != nil {
 		return nil, err
 	}
 	return tx, nil
-}
-
-func (s *TransactionService) Save(tx *models.Transaction) error {
-	return s.txRepo.Save(tx)
 }
 
 func (s *TransactionService) BalanceInRupees(accountID uint) (float64, error) {

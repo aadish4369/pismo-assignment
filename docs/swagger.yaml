@@ -26,9 +26,6 @@ definitions:
       operation_type_id:
         example: 1
         type: integer
-      tenure:
-        example: 3
-        type: integer
     type: object
   handlers.CreateTransactionResponse:
     properties:
@@ -38,8 +35,6 @@ definitions:
         type: number
       event_date:
         type: string
-      installment_plan:
-        $ref: '#/definitions/handlers.InstallmentPlanItem'
       operation_type_id:
         type: integer
       transaction_id:
@@ -56,40 +51,12 @@ definitions:
       account_id:
         example: 1
         type: integer
-      active_installment_plans:
-        items:
-          $ref: '#/definitions/handlers.InstallmentPlanItem'
-        type: array
       balance:
         example: 0
         type: number
       document_number:
         example: "12345678900"
         type: string
-    type: object
-  handlers.InstallmentPlanItem:
-    properties:
-      next_due_date:
-        type: string
-      paid_emis:
-        type: integer
-      plan_id:
-        type: integer
-      remaining_emis:
-        type: integer
-      tenure:
-        type: integer
-      total_amount:
-        type: number
-    type: object
-  handlers.NextInstallmentResponse:
-    properties:
-      paid_emis:
-        type: integer
-      remaining_emis:
-        type: integer
-      transaction_id:
-        type: integer
     type: object
 host: localhost:8080
 info:
@@ -126,7 +93,7 @@ paths:
       - accounts
   /accounts/{accountId}:
     get:
-      description: Balance and active installment plans
+      description: Balance in rupees
       parameters:
       - description: Account ID
         in: path
@@ -151,40 +118,12 @@ paths:
       summary: Get account
       tags:
       - accounts
-  /accounts/{accountId}/installments/{planId}/next:
-    post:
-      description: Debit next EMI (type 2), update plan
-      parameters:
-      - description: Account ID
-        in: path
-        name: accountId
-        required: true
-        type: integer
-      - description: Installment plan ID
-        in: path
-        name: planId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.NextInstallmentResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Next EMI
-      tags:
-      - accounts
   /transactions:
     post:
       consumes:
       - application/json
-      description: Types 1–3 debit, 4 credit. Type 2 needs tenure; first EMI debited.
-        Use /installments/.../next for further EMIs.
+      description: Types 1–3 debit full amount, 4 credit. Type 2 is stored as installment
+        purchase and debited like type 1 (full amount).
       parameters:
       - description: Transaction payload
         in: body

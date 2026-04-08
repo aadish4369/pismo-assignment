@@ -108,8 +108,8 @@ func TestTransactions_InsufficientBalance(t *testing.T) {
 	require.Equal(t, "insufficient balance", errBody["error"])
 }
 
-// Installments: type-2 creates a plan and debits first EMI; POST .../next debits the next EMI and updates balance.
-func TestInstallments_FirstEMIAndNext(t *testing.T) {
+// Type 2 (installment purchase): full amount debited in one transaction, same sign convention as type 1.
+func TestTransactions_Type2FullDebit(t *testing.T) {
 	r := setupTestRouter(t)
 
 	w := httptest.NewRecorder()
@@ -129,7 +129,7 @@ func TestInstallments_FirstEMIAndNext(t *testing.T) {
 	r.ServeHTTP(wc, reqc)
 	require.Equal(t, http.StatusCreated, wc.Code)
 
-	inst := map[string]any{"account_id": accountID, "operation_type_id": 2, "amount": 300.0, "tenure": 3}
+	inst := map[string]any{"account_id": accountID, "operation_type_id": 2, "amount": 150.0}
 	ib, _ := json.Marshal(inst)
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(ib))
@@ -139,28 +139,13 @@ func TestInstallments_FirstEMIAndNext(t *testing.T) {
 
 	var txResp map[string]any
 	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &txResp))
-	require.Equal(t, -100.0, txResp["amount"])
-	plan := txResp["installment_plan"].(map[string]any)
-	planID := uint(plan["plan_id"].(float64))
-	require.Equal(t, float64(1), plan["paid_emis"])
-	require.Equal(t, float64(2), plan["remaining_emis"])
-
-	w3 := httptest.NewRecorder()
-	req3 := httptest.NewRequest(http.MethodPost,
-		"/accounts/"+strconv.FormatUint(uint64(accountID), 10)+"/installments/"+strconv.FormatUint(uint64(planID), 10)+"/next", nil)
-	r.ServeHTTP(w3, req3)
-	require.Equal(t, http.StatusOK, w3.Code)
-
-	var payResp map[string]any
-	require.NoError(t, json.Unmarshal(w3.Body.Bytes(), &payResp))
-	require.Equal(t, float64(2), payResp["paid_emis"])
-	require.Equal(t, float64(1), payResp["remaining_emis"])
+	require.Equal(t, float64(2), txResp["operation_type_id"])
+	require.Equal(t, -150.0, txResp["amount"])
 
 	wBal := httptest.NewRecorder()
 	reqBal := httptest.NewRequest(http.MethodGet, "/accounts/"+strconv.FormatUint(uint64(accountID), 10), nil)
 	r.ServeHTTP(wBal, reqBal)
 	var bal map[string]any
 	require.NoError(t, json.Unmarshal(wBal.Body.Bytes(), &bal))
-	// 300 credit - 100 first EMI - 100 second EMI
-	require.Equal(t, float64(100), bal["balance"])
+	require.Equal(t, float64(150), bal["balance"])
 }

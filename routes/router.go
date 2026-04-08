@@ -23,7 +23,6 @@ func SetupRouter() *gin.Engine {
 
 	api := handlers.NewAPIHandler()
 	router.POST("/accounts", api.CreateAccount)
-	router.POST("/accounts/:accountId/installments/:planId/next", api.PostNextInstallment)
 	router.GET("/accounts/:accountId", api.GetAccount)
 	router.POST("/transactions", api.CreateTransaction)
 

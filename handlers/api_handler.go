@@ -47,7 +47,7 @@ func (h *APIHandler) CreateAccount(c *gin.Context) {
 }
 
 // @Summary      Get account
-// @Description  Balance and active installment plans
+// @Description  Balance in rupees
 // @Tags         accounts
 // @Produce      json
 // @Param        accountId  path      int  true  "Account ID"
@@ -62,27 +62,21 @@ func (h *APIHandler) GetAccount(c *gin.Context) {
 		return
 	}
 
-	account, balance, plans, err := h.svc.GetAccount(uint(id))
+	account, balance, err := h.svc.GetAccount(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	items := make([]InstallmentPlanItem, 0, len(plans))
-	for i := range plans {
-		items = append(items, installmentPlanItemFromModel(&plans[i]))
-	}
-
 	c.JSON(http.StatusOK, GetAccountResponse{
-		AccountID:              account.ID,
-		DocumentNumber:         account.DocumentNumber,
-		Balance:                balance,
-		ActiveInstallmentPlans: items,
+		AccountID:      account.ID,
+		DocumentNumber: account.DocumentNumber,
+		Balance:        balance,
 	})
 }
 
 // @Summary      Create transaction
-// @Description  Types 1–3 debit, 4 credit. Type 2 needs tenure; first EMI debited. Use /installments/.../next for further EMIs.
+// @Description  Types 1–3 debit full amount, 4 credit. Type 2 is stored as installment purchase and debited like type 1 (full amount).
 // @Tags         transactions
 // @Accept       json
 // @Produce      json
@@ -97,72 +91,21 @@ func (h *APIHandler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	tx, plan, err := h.svc.CreateTransaction(
+	tx, err := h.svc.CreateTransaction(
 		req.AccountID,
 		models.OperationType(req.OperationTypeID),
 		req.Amount,
-		req.Tenure,
 	)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp := CreateTransactionResponse{
+	c.JSON(http.StatusCreated, CreateTransactionResponse{
 		TransactionID:   tx.ID,
 		AccountID:       tx.AccountId,
 		OperationTypeID: int(tx.OperationTypeId),
 		Amount:          float64(tx.AmountInPaisa) / 100.0,
 		EventDate:       tx.EventDate,
-	}
-	if plan != nil {
-		item := installmentPlanItemFromModel(plan)
-		resp.InstallmentPlan = &item
-	}
-	c.JSON(http.StatusCreated, resp)
-}
-
-// @Summary      Next EMI
-// @Description  Debit next EMI (type 2), update plan
-// @Tags         accounts
-// @Produce      json
-// @Param        accountId  path      int  true  "Account ID"
-// @Param        planId     path      int  true  "Installment plan ID"
-// @Success      200        {object}  NextInstallmentResponse
-// @Failure      400        {object}  ErrorResponse
-// @Router       /accounts/{accountId}/installments/{planId}/next [post]
-func (h *APIHandler) PostNextInstallment(c *gin.Context) {
-	accountID, err := strconv.Atoi(c.Param("accountId"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid accountId"})
-		return
-	}
-	planID, err := strconv.Atoi(c.Param("planId"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid planId"})
-		return
-	}
-
-	tx, plan, err := h.svc.RecordNextInstallmentEMI(uint(accountID), uint(planID))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, NextInstallmentResponse{
-		TransactionID: tx.ID,
-		PaidEMIs:      plan.PaidEMIs,
-		RemainingEMIs: plan.Tenure - plan.PaidEMIs,
 	})
-}
-
-func installmentPlanItemFromModel(p *models.InstallmentPlan) InstallmentPlanItem {
-	return InstallmentPlanItem{
-		PlanID:        p.ID,
-		TotalAmount:   float64(p.TotalPaisa) / 100.0,
-		Tenure:        p.Tenure,
-		PaidEMIs:      p.PaidEMIs,
-		RemainingEMIs: p.Tenure - p.PaidEMIs,
-		NextDueDate:   p.NextDueDate,
-	}
 }

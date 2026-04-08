@@ -57,7 +57,7 @@ const docTemplate = `{
         },
         "/accounts/{accountId}": {
             "get": {
-                "description": "Balance and active installment plans",
+                "description": "Balance in rupees",
                 "produces": [
                     "application/json"
                 ],
@@ -96,51 +96,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/accounts/{accountId}/installments/{planId}/next": {
-            "post": {
-                "description": "Debit next EMI (type 2), update plan",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "accounts"
-                ],
-                "summary": "Next EMI",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Account ID",
-                        "name": "accountId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Installment plan ID",
-                        "name": "planId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.NextInstallmentResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/transactions": {
             "post": {
-                "description": "Types 1–3 debit, 4 credit. Type 2 needs tenure; first EMI debited. Use /installments/.../next for further EMIs.",
+                "description": "Types 1–3 debit full amount, 4 credit. Type 2 is stored as installment purchase and debited like type 1 (full amount).",
                 "consumes": [
                     "application/json"
                 ],
@@ -216,10 +174,6 @@ const docTemplate = `{
                 "operation_type_id": {
                     "type": "integer",
                     "example": 1
-                },
-                "tenure": {
-                    "type": "integer",
-                    "example": 3
                 }
             }
         },
@@ -234,9 +188,6 @@ const docTemplate = `{
                 },
                 "event_date": {
                     "type": "string"
-                },
-                "installment_plan": {
-                    "$ref": "#/definitions/handlers.InstallmentPlanItem"
                 },
                 "operation_type_id": {
                     "type": "integer"
@@ -262,12 +213,6 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "active_installment_plans": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/handlers.InstallmentPlanItem"
-                    }
-                },
                 "balance": {
                     "type": "number",
                     "example": 0
@@ -275,43 +220,6 @@ const docTemplate = `{
                 "document_number": {
                     "type": "string",
                     "example": "12345678900"
-                }
-            }
-        },
-        "handlers.InstallmentPlanItem": {
-            "type": "object",
-            "properties": {
-                "next_due_date": {
-                    "type": "string"
-                },
-                "paid_emis": {
-                    "type": "integer"
-                },
-                "plan_id": {
-                    "type": "integer"
-                },
-                "remaining_emis": {
-                    "type": "integer"
-                },
-                "tenure": {
-                    "type": "integer"
-                },
-                "total_amount": {
-                    "type": "number"
-                }
-            }
-        },
-        "handlers.NextInstallmentResponse": {
-            "type": "object",
-            "properties": {
-                "paid_emis": {
-                    "type": "integer"
-                },
-                "remaining_emis": {
-                    "type": "integer"
-                },
-                "transaction_id": {
-                    "type": "integer"
                 }
             }
         }

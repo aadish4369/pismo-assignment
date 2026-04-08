@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
 	"pismo-assignment/models"
@@ -41,6 +41,5 @@ func Migrate() error {
 	return DB.AutoMigrate(
 		&models.Account{},
 		&models.Transaction{},
-		&models.InstallmentPlan{},
 	)
 }
