@@ -9,6 +9,12 @@ import (
 	_ "pismo-assignment/docs"
 )
 
+// @title       Pismo API
+// @version     1.0
+// @description Accounts and transactions (SQLite, Gin, GORM).
+// @host        localhost:8080
+// @BasePath    /
+
 func main() {
 	db.ConnectDatabase()
 	if err := db.Migrate(); err != nil {

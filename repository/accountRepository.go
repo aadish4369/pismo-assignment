@@ -24,8 +24,3 @@ func (r *AccountRepository) GetById(id uint) (*models.Account, error) {
 	}
 	return &account, nil
 }
-
-func (r *AccountRepository) Update(account *models.Account) error {
-	result := db.DB.Save(account)
-	return result.Error
-}

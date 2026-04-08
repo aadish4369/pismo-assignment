@@ -18,9 +18,8 @@ func NewAPIHandler() *APIHandler {
 	return &APIHandler{svc: services.NewRoutineService()}
 }
 
-// CreateAccount godoc
 // @Summary      Create account
-// @Description  Creates an account for a document number.
+// @Description  POST body: document_number
 // @Tags         accounts
 // @Accept       json
 // @Produce      json
@@ -47,9 +46,8 @@ func (h *APIHandler) CreateAccount(c *gin.Context) {
 	})
 }
 
-// GetAccount godoc
 // @Summary      Get account
-// @Description  Returns account id, document number, balance, and active installment plans (incomplete).
+// @Description  Balance and active installment plans
 // @Tags         accounts
 // @Produce      json
 // @Param        accountId  path      int  true  "Account ID"
@@ -83,9 +81,8 @@ func (h *APIHandler) GetAccount(c *gin.Context) {
 	})
 }
 
-// CreateTransaction godoc
 // @Summary      Create transaction
-// @Description  Types 1–3 debit (stored negative), type 4 credit (stored positive). For type 2, optional tenure (>1) creates an installment plan; omit tenure for a lump debit only. EMI repayment: POST .../installments/.../pay (credit voucher). Fails if balance would go negative on debits.
+// @Description  Types 1–3 debit, 4 credit. Type 2 needs tenure; first EMI debited. Use /installments/.../next for further EMIs.
 // @Tags         transactions
 // @Accept       json
 // @Produce      json
@@ -125,17 +122,16 @@ func (h *APIHandler) CreateTransaction(c *gin.Context) {
 	c.JSON(http.StatusCreated, resp)
 }
 
-// PayInstallment godoc
-// @Summary      Pay one installment
-// @Description  Records a credit voucher for this EMI and advances the plan (does not change the original purchase debit).
+// @Summary      Next EMI
+// @Description  Debit next EMI (type 2), update plan
 // @Tags         accounts
 // @Produce      json
 // @Param        accountId  path      int  true  "Account ID"
 // @Param        planId     path      int  true  "Installment plan ID"
-// @Success      200        {object}  PayInstallmentResponse
+// @Success      200        {object}  NextInstallmentResponse
 // @Failure      400        {object}  ErrorResponse
-// @Router       /accounts/{accountId}/installments/{planId}/pay [post]
-func (h *APIHandler) PayInstallment(c *gin.Context) {
+// @Router       /accounts/{accountId}/installments/{planId}/next [post]
+func (h *APIHandler) PostNextInstallment(c *gin.Context) {
 	accountID, err := strconv.Atoi(c.Param("accountId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid accountId"})
@@ -147,13 +143,14 @@ func (h *APIHandler) PayInstallment(c *gin.Context) {
 		return
 	}
 
-	plan, err := h.svc.PayInstallmentEMI(uint(accountID), uint(planID))
+	tx, plan, err := h.svc.RecordNextInstallmentEMI(uint(accountID), uint(planID))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, PayInstallmentResponse{
+	c.JSON(http.StatusOK, NextInstallmentResponse{
+		TransactionID: tx.ID,
 		PaidEMIs:      plan.PaidEMIs,
 		RemainingEMIs: plan.Tenure - plan.PaidEMIs,
 	})

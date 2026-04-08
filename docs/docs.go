@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/accounts": {
             "post": {
-                "description": "Creates an account for a document number.",
+                "description": "POST body: document_number",
                 "consumes": [
                     "application/json"
                 ],
@@ -57,7 +57,7 @@ const docTemplate = `{
         },
         "/accounts/{accountId}": {
             "get": {
-                "description": "Returns account id, document number, balance, and active installment plans (incomplete).",
+                "description": "Balance and active installment plans",
                 "produces": [
                     "application/json"
                 ],
@@ -96,16 +96,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/accounts/{accountId}/installments/{planId}/pay": {
+        "/accounts/{accountId}/installments/{planId}/next": {
             "post": {
-                "description": "Records a credit voucher for this EMI and advances the plan (does not change the original purchase debit).",
+                "description": "Debit next EMI (type 2), update plan",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "accounts"
                 ],
-                "summary": "Pay one installment",
+                "summary": "Next EMI",
                 "parameters": [
                     {
                         "type": "integer",
@@ -126,7 +126,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.PayInstallmentResponse"
+                            "$ref": "#/definitions/handlers.NextInstallmentResponse"
                         }
                     },
                     "400": {
@@ -140,7 +140,7 @@ const docTemplate = `{
         },
         "/transactions": {
             "post": {
-                "description": "Types 1–3 debit (stored negative), type 4 credit (stored positive). For type 2, optional tenure (\u003e1) creates an installment plan; omit tenure for a lump debit only. EMI repayment: POST .../installments/.../pay (credit voucher). Fails if balance would go negative on debits.",
+                "description": "Types 1–3 debit, 4 credit. Type 2 needs tenure; first EMI debited. Use /installments/.../next for further EMIs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -301,13 +301,16 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.PayInstallmentResponse": {
+        "handlers.NextInstallmentResponse": {
             "type": "object",
             "properties": {
                 "paid_emis": {
                     "type": "integer"
                 },
                 "remaining_emis": {
+                    "type": "integer"
+                },
+                "transaction_id": {
                     "type": "integer"
                 }
             }
@@ -317,12 +320,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Pismo API",
+	Description:      "Accounts and transactions (SQLite, Gin, GORM).",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

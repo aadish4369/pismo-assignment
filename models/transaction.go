@@ -12,4 +12,7 @@ type Transaction struct {
 
 	AmountInPaisa int64 `gorm:"not null"`
 	EventDate     time.Time
+
+	InstallmentPlanId *uint            `gorm:"index"`
+	InstallmentPlan   *InstallmentPlan `gorm:"constraint:OnDelete:RESTRICT;"`
 }

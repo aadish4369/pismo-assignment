@@ -16,14 +16,8 @@ func (r *TransactionRepository) Create(transaction *models.Transaction) error {
 	return result.Error
 }
 
-func (r *TransactionRepository) GetByAccountID(accountID uint) ([]models.Transaction, error) {
-	var txs []models.Transaction
-	err := db.DB.
-		Where("account_id = ?", accountID).
-		Order("id desc").
-		Find(&txs).Error
-
-	return txs, err
+func (r *TransactionRepository) Save(transaction *models.Transaction) error {
+	return db.DB.Save(transaction).Error
 }
 
 func (r *TransactionRepository) SumAmountInPaisaByAccountID(accountID uint) (int64, error) {
