@@ -179,15 +179,153 @@ const docTemplate = `{
             }
         }
     },
+    "definitions": {
+        "handlers.CreateAccountRequest": {
+            "type": "object",
+            "properties": {
+                "document_number": {
+                    "type": "string",
+                    "example": "12345678900"
+                }
+            }
+        },
+        "handlers.CreateAccountResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "document_number": {
+                    "type": "string",
+                    "example": "12345678900"
+                }
+            }
+        },
+        "handlers.CreateTransactionRequest": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "amount": {
+                    "type": "number",
+                    "example": 123.45
+                },
+                "operation_type_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "tenure": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "handlers.CreateTransactionResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "event_date": {
+                    "type": "string"
+                },
+                "installment_plan": {
+                    "$ref": "#/definitions/handlers.InstallmentPlanItem"
+                },
+                "operation_type_id": {
+                    "type": "integer"
+                },
+                "transaction_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "record not found"
+                }
+            }
+        },
+        "handlers.GetAccountResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "active_installment_plans": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.InstallmentPlanItem"
+                    }
+                },
+                "balance": {
+                    "type": "number",
+                    "example": 0
+                },
+                "document_number": {
+                    "type": "string",
+                    "example": "12345678900"
+                }
+            }
+        },
+        "handlers.InstallmentPlanItem": {
+            "type": "object",
+            "properties": {
+                "next_due_date": {
+                    "type": "string"
+                },
+                "paid_emis": {
+                    "type": "integer"
+                },
+                "plan_id": {
+                    "type": "integer"
+                },
+                "remaining_emis": {
+                    "type": "integer"
+                },
+                "tenure": {
+                    "type": "integer"
+                },
+                "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "handlers.NextInstallmentResponse": {
+            "type": "object",
+            "properties": {
+                "paid_emis": {
+                    "type": "integer"
+                },
+                "remaining_emis": {
+                    "type": "integer"
+                },
+                "transaction_id": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
 }`
 
+// SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Pismo API",
-	Description:      "Accounts and transactions",
+	Description:      "Accounts and transactions (SQLite, Gin, GORM).",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
