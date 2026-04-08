@@ -30,9 +30,9 @@ go test ./... -count=1
 
 ## Docker
 
-The `Dockerfile` uses `golang:bookworm` and runs **`go run .`** at container start (small Dockerfile; the image includes the full Go toolchain, so it is larger than a compiled multi-stage image). Inside the container, `DATABASE_PATH` defaults to `/data/app.db`.
+The `Dockerfile` is a **multi-stage** build: compile with CGO in a Go image, then run a slim `debian:bookworm-slim` image with `libsqlite3-0`. Inside the container, `DATABASE_PATH` defaults to `/data/app.db` and `GIN_MODE=release`.
 
-**Compose** (foreground, API on `http://localhost:8080`):
+**Compose** (foreground, API on `http://localhost:8080`). Use **`--no-log-prefix`** so you only see your app’s log lines (no `api-1 |` prefix from Compose):
 
 ```bash
 docker compose up --build
@@ -42,6 +42,7 @@ Detached:
 
 ```bash
 docker compose up -d --build
+docker compose logs -f --no-log-prefix api
 ```
 
 Stop:

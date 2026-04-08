@@ -1,5 +1,6 @@
 .git
 .gitignore
+data/
 *.md
 app.db
 *.sqlite
