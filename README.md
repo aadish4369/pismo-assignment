@@ -30,6 +30,37 @@ go test ./... -count=1
 
 ## Docker
 
+The `Dockerfile` uses `golang:bookworm` and runs **`go run .`** at container start (small Dockerfile; the image includes the full Go toolchain, so it is larger than a compiled multi-stage image). Inside the container, `DATABASE_PATH` defaults to `/data/app.db`.
+
+**Compose** (foreground, API on `http://localhost:8080`):
+
 ```bash
 docker compose up --build
 ```
+
+Detached:
+
+```bash
+docker compose up -d --build
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+**Without Compose:**
+
+```bash
+docker build -t pismo-api .
+docker run --rm -p 8080:8080 pismo-api
+```
+
+Persist SQLite on the host (`DATABASE_PATH` in the image is `/data/app.db`):
+
+```bash
+docker run --rm -p 8080:8080 -v "$(pwd)/data:/data" pismo-api
+```
+
+Swagger in Docker: `http://localhost:8080/swagger/index.html`

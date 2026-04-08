@@ -1,11 +1,8 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     ports:
       - "8080:8080"
     environment:
       PORT: "8080"
       DATABASE_PATH: /data/app.db
-    restart: unless-stopped
