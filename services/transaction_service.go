@@ -9,12 +9,17 @@ import (
 )
 
 type TransactionService struct {
-	txRepo *repository.TransactionRepository
+	txRepo      *repository.TransactionRepository
+	accountRepo *repository.AccountRepository
 }
 
-func NewTransactionService(txRep *repository.TransactionRepository) *TransactionService {
+func NewTransactionService(
+	txRepo *repository.TransactionRepository,
+	accountRepo *repository.AccountRepository,
+) *TransactionService {
 	return &TransactionService{
-		txRepo: txRep,
+		txRepo:      txRepo,
+		accountRepo: accountRepo,
 	}
 }
 
@@ -61,6 +66,21 @@ func (s *TransactionService) Create(
 		return nil, err
 	}
 	return tx, nil
+}
+
+func (s *TransactionService) CreateFromRupees(
+	accountID uint,
+	opID models.OperationType,
+	amountInRupees float64,
+) (*models.Transaction, error) {
+	if _, err := s.accountRepo.GetById(accountID); err != nil {
+		return nil, err
+	}
+	if amountInRupees <= 0 {
+		return nil, errors.New("amount must be positive")
+	}
+	totalPaisa := int64(amountInRupees * 100)
+	return s.Create(accountID, opID, totalPaisa)
 }
 
 func (s *TransactionService) BalanceInRupees(accountID uint) (float64, error) {
