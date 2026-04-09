@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -28,22 +29,27 @@ func NewAccountHandler(accountSvc *services.AccountService, txSvc *services.Tran
 // @Failure      400   {object}  ErrorResponse
 // @Router       /accounts [post]
 func (h *AccountHandler) CreateAccount(c *gin.Context) {
+	log.Println("POST /accounts")
 	var req CreateAccountRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Response: %d", http.StatusBadRequest)
 		return
 	}
 
 	acct, err := h.accountSvc.Create(req.DocumentNumber)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Response: %d %+v", http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, CreateAccountResponse{
+	answer := CreateAccountResponse{
 		AccountID:      acct.ID,
 		DocumentNumber: acct.DocumentNumber,
-	})
+	}
+	c.JSON(http.StatusCreated, answer)
+	log.Printf("Response: %d %+v", http.StatusCreated, answer)
 }
 
 // @Summary      Get account
@@ -56,27 +62,33 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 // @Failure      404        {object}  ErrorResponse
 // @Router       /accounts/{accountId} [get]
 func (h *AccountHandler) GetAccount(c *gin.Context) {
+	log.Printf("GET /accounts/%s", c.Param("accountId"))
 	id, err := strconv.Atoi(c.Param("accountId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid accountId"})
+		log.Printf("Response: %d", http.StatusBadRequest)
 		return
 	}
 
 	acct, err := h.accountSvc.GetByID(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		log.Printf("Response: %d", http.StatusNotFound)
 		return
 	}
 
 	balance, err := h.txSvc.BalanceInRupees(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		log.Printf("Response: %d", http.StatusNotFound)
 		return
 	}
 
-	c.JSON(http.StatusOK, GetAccountResponse{
+	answer := GetAccountResponse{
 		AccountID:      acct.ID,
 		DocumentNumber: acct.DocumentNumber,
 		Balance:        balance,
-	})
+	}
+	c.JSON(http.StatusOK, answer)
+	log.Printf("Response: %d %+v", http.StatusOK, answer)
 }

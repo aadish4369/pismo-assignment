@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,11 +28,17 @@ func NewTransactionHandler(txSvc *services.TransactionService) *TransactionHandl
 // @Failure      400   {object}  ErrorResponse
 // @Router       /transactions [post]
 func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
+	log.Println("POST /transactions")
 	var req CreateTransactionRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		resp := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, resp)
+		log.Printf("Request: %+v", req)
+		log.Printf("Error: %v", err)
+		log.Printf("Response: %d %+v", http.StatusBadRequest, resp)
 		return
 	}
+	log.Printf("Request: %+v", req)
 
 	tx, err := h.txSvc.CreateFromRupees(
 		req.AccountID,
@@ -39,15 +46,20 @@ func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
 		req.Amount,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		resp := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, resp)
+		log.Printf("Error: %v", err)
+		log.Printf("Response: %d %+v", http.StatusBadRequest, resp)
 		return
 	}
 
-	c.JSON(http.StatusCreated, CreateTransactionResponse{
+	resp := CreateTransactionResponse{
 		TransactionID:   tx.ID,
 		AccountID:       tx.AccountId,
 		OperationTypeID: int(tx.OperationTypeId),
 		Amount:          float64(tx.AmountInPaisa) / 100.0,
 		EventDate:       tx.EventDate,
-	})
+	}
+	c.JSON(http.StatusCreated, resp)
+	log.Printf("Response: %d %+v", http.StatusCreated, resp)
 }

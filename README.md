@@ -23,6 +23,8 @@ Defaults: port `8080` (`PORT`), database `data/app.db` (`DATABASE_PATH`).
 
 ## Tests
 
+Unit tests cover the **service** layer. Integration tests exercise the **API** end-to-end (HTTP and SQLite).
+
 ```bash
 go test ./... -count=1
 ```
