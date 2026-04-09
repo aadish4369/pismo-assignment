@@ -9,19 +9,19 @@ import (
 )
 
 func SetupRouter() *gin.Engine {
-	router := gin.New()
+	engine := gin.New()
 
-	accountRepo := repository.NewAccountRepository()
-	txRepo := repository.NewTransactionRepository()
+	accountRepository := repository.NewAccountRepository()
+	transactionRepository := repository.NewTransactionRepository()
 
-	accountSvc := services.NewAccountService(accountRepo)
-	txSvc := services.NewTransactionService(txRepo, accountRepo)
+	accountService := services.NewAccountService(accountRepository)
+	transactionService := services.NewTransactionService(transactionRepository, accountRepository)
 
-	accountHandler := handlers.NewAccountHandler(accountSvc, txSvc)
-	txHandler := handlers.NewTransactionHandler(txSvc)
+	accountHandler := handlers.NewAccountHandler(accountService)
+	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
-	registerAccountRoutes(router, accountHandler)
-	registerTransactionRoutes(router, txHandler)
+	registerAccountRoutes(engine, accountHandler)
+	registerTransactionRoutes(engine, transactionHandler)
 
-	return router
+	return engine
 }

@@ -11,11 +11,11 @@ import (
 )
 
 type TransactionHandler struct {
-	txSvc *services.TransactionService
+	transactionService *services.TransactionService
 }
 
-func NewTransactionHandler(txSvc *services.TransactionService) *TransactionHandler {
-	return &TransactionHandler{txSvc: txSvc}
+func NewTransactionHandler(transactionService *services.TransactionService) *TransactionHandler {
+	return &TransactionHandler{transactionService: transactionService}
 }
 
 // @Summary      Create transaction
@@ -27,37 +27,44 @@ func NewTransactionHandler(txSvc *services.TransactionService) *TransactionHandl
 // @Success      201   {object}  models.CreateTransactionResponse
 // @Failure      400   {object}  models.ErrorResponse
 // @Router       /transactions [post]
-func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
+func (transactionHandler *TransactionHandler) CreateTransaction(c *gin.Context) {
 	log.Println("POST /transactions")
-	var req models.CreateTransactionRequest
-	if err := c.BindJSON(&req); err != nil {
-		resp := gin.H{"error": err.Error()}
-		c.JSON(http.StatusBadRequest, resp)
-		log.Printf("Request: %+v", req)
+	var createTransactionRequest models.CreateTransactionRequest
+	if err := c.BindJSON(&createTransactionRequest); err != nil {
+		errorResponse := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, errorResponse)
+		log.Printf("Request: %+v", createTransactionRequest)
 		log.Printf("Error: %v", err)
 		return
 	}
-	log.Printf("Request: %+v", req)
+	log.Printf("Request: %+v", createTransactionRequest)
 
-	tx, err := h.txSvc.CreateFromRupees(
-		req.AccountID,
-		models.OperationType(req.OperationTypeID),
-		req.Amount,
+	if createTransactionRequest.Amount <= 0 {
+		errorResponse := gin.H{"error": "amount must be positive"}
+		c.JSON(http.StatusBadRequest, errorResponse)
+		log.Printf("Error: %v", errorResponse["error"])
+		return
+	}
+
+	createdTransaction, err := transactionHandler.transactionService.Create(
+		createTransactionRequest.AccountID,
+		models.OperationType(createTransactionRequest.OperationTypeID),
+		int64(createTransactionRequest.Amount*100),
 	)
 	if err != nil {
-		resp := gin.H{"error": err.Error()}
-		c.JSON(http.StatusBadRequest, resp)
+		errorResponse := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, errorResponse)
 		log.Printf("Error: %v", err)
 		return
 	}
 
-	resp := models.CreateTransactionResponse{
-		TransactionID:   tx.ID,
-		AccountID:       tx.AccountId,
-		OperationTypeID: int(tx.OperationTypeId),
-		Amount:          float64(tx.AmountInPaisa) / 100.0,
-		EventDate:       tx.EventDate,
+	createTransactionResponse := models.CreateTransactionResponse{
+		TransactionID:   createdTransaction.ID,
+		AccountID:       createdTransaction.AccountId,
+		OperationTypeID: int(createdTransaction.OperationTypeId),
+		Amount:          float64(createdTransaction.AmountInPaisa) / 100.0,
+		EventDate:       createdTransaction.EventDate,
 	}
-	c.JSON(http.StatusCreated, resp)
-	log.Printf("Response: %d %+v", http.StatusCreated, resp)
+	c.JSON(http.StatusCreated, createTransactionResponse)
+	log.Printf("Response: %d %+v", http.StatusCreated, createTransactionResponse)
 }

@@ -8,22 +8,22 @@ import (
 )
 
 type AccountService struct {
-	repo *repository.AccountRepository
+	accountRepository *repository.AccountRepository
 }
 
-func NewAccountService(repo *repository.AccountRepository) *AccountService {
-	return &AccountService{repo: repo}
+func NewAccountService(accountRepository *repository.AccountRepository) *AccountService {
+	return &AccountService{accountRepository: accountRepository}
 }
 
-func (s *AccountService) Create(documentNumber string) (*models.Account, error) {
+func (accountService *AccountService) Create(documentNumber string) (*models.Account, error) {
 	if documentNumber == "" {
 		return nil, errors.New("document_number is required")
 	}
 	account := &models.Account{DocumentNumber: documentNumber}
-	err := s.repo.Create(account)
+	err := accountService.accountRepository.Create(account)
 	return account, err
 }
 
-func (s *AccountService) GetByID(accountID uint) (*models.Account, error) {
-	return s.repo.GetById(accountID)
+func (accountService *AccountService) GetByID(accountID uint) (*models.Account, error) {
+	return accountService.accountRepository.GetById(accountID)
 }

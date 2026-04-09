@@ -24,3 +24,9 @@ func (r *AccountRepository) GetById(id uint) (*models.Account, error) {
 	}
 	return &account, nil
 }
+
+func (r *AccountRepository) UpdateBalanceByID(id uint, balanceInPaisa int64) error {
+	return db.DB.Model(&models.Account{}).
+		Where("id = ?", id).
+		Update("balance_in_paisa", balanceInPaisa).Error
+}

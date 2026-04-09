@@ -4,6 +4,7 @@ type Account struct {
 	BaseModel
 
 	DocumentNumber string `gorm:"not null;uniqueIndex"`
+	BalanceInPaisa int64  `gorm:"not null;default:0"`
 }
 
 type CreateAccountRequest struct {

@@ -12,12 +12,11 @@ import (
 )
 
 type AccountHandler struct {
-	accountSvc *services.AccountService
-	txSvc      *services.TransactionService
+	accountService *services.AccountService
 }
 
-func NewAccountHandler(accountSvc *services.AccountService, txSvc *services.TransactionService) *AccountHandler {
-	return &AccountHandler{accountSvc: accountSvc, txSvc: txSvc}
+func NewAccountHandler(accountService *services.AccountService) *AccountHandler {
+	return &AccountHandler{accountService: accountService}
 }
 
 // @Summary      Create account
@@ -29,28 +28,30 @@ func NewAccountHandler(accountSvc *services.AccountService, txSvc *services.Tran
 // @Success      201   {object}  models.CreateAccountResponse
 // @Failure      400   {object}  models.ErrorResponse
 // @Router       /accounts [post]
-func (h *AccountHandler) CreateAccount(c *gin.Context) {
+func (accountHandler *AccountHandler) CreateAccount(c *gin.Context) {
 	log.Println("POST /accounts")
-	var req models.CreateAccountRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		log.Printf("Response: %d %+v", http.StatusBadRequest, gin.H{"error": err.Error()})
+	var createAccountRequest models.CreateAccountRequest
+	if err := c.BindJSON(&createAccountRequest); err != nil {
+		errorResponse := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, errorResponse)
+		log.Printf("Response: %d %+v", http.StatusBadRequest, errorResponse)
 		return
 	}
-	log.Printf("Request: %+v", req)
+	log.Printf("Request: %+v", createAccountRequest)
 
-	acct, err := h.accountSvc.Create(req.DocumentNumber)
+	createdAccount, err := accountHandler.accountService.Create(createAccountRequest.DocumentNumber)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		errorResponse := gin.H{"error": err.Error()}
+		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
 
-	answer := models.CreateAccountResponse{
-		AccountID:      acct.ID,
-		DocumentNumber: acct.DocumentNumber,
+	createAccountResponse := models.CreateAccountResponse{
+		AccountID:      createdAccount.ID,
+		DocumentNumber: createdAccount.DocumentNumber,
 	}
-	c.JSON(http.StatusCreated, answer)
-	log.Printf("Response: %d %+v", http.StatusCreated, answer)
+	c.JSON(http.StatusCreated, createAccountResponse)
+	log.Printf("Response: %d %+v", http.StatusCreated, createAccountResponse)
 }
 
 // @Summary      Get account
@@ -62,35 +63,30 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 // @Failure      400        {object}  models.ErrorResponse
 // @Failure      404        {object}  models.ErrorResponse
 // @Router       /accounts/{accountId} [get]
-func (h *AccountHandler) GetAccount(c *gin.Context) {
+func (accountHandler *AccountHandler) GetAccount(c *gin.Context) {
 	log.Printf("GET /accounts/%s", c.Param("accountId"))
-	id, err := strconv.Atoi(c.Param("accountId"))
+	accountID, err := strconv.Atoi(c.Param("accountId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid accountId"})
+		errorResponse := gin.H{"error": "invalid accountId"}
+		c.JSON(http.StatusBadRequest, errorResponse)
 		log.Printf("Response: %d", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Request: %d", id)
+	log.Printf("Request: %d", accountID)
 
-	acct, err := h.accountSvc.GetByID(uint(id))
+	account, err := accountHandler.accountService.GetByID(uint(accountID))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		errorResponse := gin.H{"error": err.Error()}
+		c.JSON(http.StatusNotFound, errorResponse)
 		log.Printf("Response: %d", http.StatusNotFound)
 		return
 	}
 
-	balance, err := h.txSvc.BalanceInRupees(uint(id))
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		log.Printf("Response: %d", http.StatusNotFound)
-		return
+	getAccountResponse := models.GetAccountResponse{
+		AccountID:      account.ID,
+		DocumentNumber: account.DocumentNumber,
+		Balance:        float64(account.BalanceInPaisa) / 100.0,
 	}
-
-	answer := models.GetAccountResponse{
-		AccountID:      acct.ID,
-		DocumentNumber: acct.DocumentNumber,
-		Balance:        balance,
-	}
-	c.JSON(http.StatusOK, answer)
-	log.Printf("Response: %d %+v", http.StatusOK, answer)
+	c.JSON(http.StatusOK, getAccountResponse)
+	log.Printf("Response: %d %+v", http.StatusOK, getAccountResponse)
 }
