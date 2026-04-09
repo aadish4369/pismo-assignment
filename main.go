@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"pismo-assignment/db"
 	"pismo-assignment/routes"
 
@@ -22,6 +25,7 @@ func main() {
 	}
 
 	r := routes.SetupRouter()
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	addr := os.Getenv("PORT")
 	if addr == "" {
 		addr = "8080"

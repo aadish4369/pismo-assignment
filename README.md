@@ -4,7 +4,6 @@ REST API for accounts and transactions (Go, Gin, GORM, SQLite). JSON amounts are
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/ping` | Health check. |
 | `POST` | `/accounts` | Create account (`document_number`). |
 | `GET` | `/accounts/:accountId` | Get account and balance (rupees). |
 | `POST` | `/transactions` | Post transaction (`account_id`, `operation_type_id`, `amount`). Types: **1** purchase, **2** installment, **3** withdrawal, **4** credit. |
@@ -24,6 +23,9 @@ Defaults: port `8080` (`PORT`), database `data/app.db` (`DATABASE_PATH`).
 ## Tests
 
 Unit tests cover the **service** layer. Integration tests exercise the **API** end-to-end (HTTP and SQLite).
+
+- Service tests: `services/*_test.go`
+- API tests: `tests/*_test.go`
 
 ```bash
 go test ./... -count=1

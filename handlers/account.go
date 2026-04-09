@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"pismo-assignment/models"
 	"pismo-assignment/services"
 )
 
@@ -24,27 +25,27 @@ func NewAccountHandler(accountSvc *services.AccountService, txSvc *services.Tran
 // @Tags         accounts
 // @Accept       json
 // @Produce      json
-// @Param        body  body      CreateAccountRequest  true  "Document number"
-// @Success      201   {object}  CreateAccountResponse
-// @Failure      400   {object}  ErrorResponse
+// @Param        body  body      models.CreateAccountRequest  true  "Document number"
+// @Success      201   {object}  models.CreateAccountResponse
+// @Failure      400   {object}  models.ErrorResponse
 // @Router       /accounts [post]
 func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	log.Println("POST /accounts")
-	var req CreateAccountRequest
+	var req models.CreateAccountRequest
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		log.Printf("Response: %d", http.StatusBadRequest)
-		return
-	}
-
-	acct, err := h.accountSvc.Create(req.DocumentNumber)
-	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		log.Printf("Response: %d %+v", http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Printf("Request: %+v", req)
 
-	answer := CreateAccountResponse{
+	acct, err := h.accountSvc.Create(req.DocumentNumber)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	answer := models.CreateAccountResponse{
 		AccountID:      acct.ID,
 		DocumentNumber: acct.DocumentNumber,
 	}
@@ -57,9 +58,9 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 // @Tags         accounts
 // @Produce      json
 // @Param        accountId  path      int  true  "Account ID"
-// @Success      200        {object}  GetAccountResponse
-// @Failure      400        {object}  ErrorResponse
-// @Failure      404        {object}  ErrorResponse
+// @Success      200        {object}  models.GetAccountResponse
+// @Failure      400        {object}  models.ErrorResponse
+// @Failure      404        {object}  models.ErrorResponse
 // @Router       /accounts/{accountId} [get]
 func (h *AccountHandler) GetAccount(c *gin.Context) {
 	log.Printf("GET /accounts/%s", c.Param("accountId"))
@@ -69,6 +70,7 @@ func (h *AccountHandler) GetAccount(c *gin.Context) {
 		log.Printf("Response: %d", http.StatusBadRequest)
 		return
 	}
+	log.Printf("Request: %d", id)
 
 	acct, err := h.accountSvc.GetByID(uint(id))
 	if err != nil {
@@ -84,7 +86,7 @@ func (h *AccountHandler) GetAccount(c *gin.Context) {
 		return
 	}
 
-	answer := GetAccountResponse{
+	answer := models.GetAccountResponse{
 		AccountID:      acct.ID,
 		DocumentNumber: acct.DocumentNumber,
 		Balance:        balance,

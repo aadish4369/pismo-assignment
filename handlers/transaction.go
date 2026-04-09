@@ -23,19 +23,18 @@ func NewTransactionHandler(txSvc *services.TransactionService) *TransactionHandl
 // @Tags         transactions
 // @Accept       json
 // @Produce      json
-// @Param        body  body      CreateTransactionRequest  true  "Transaction payload"
-// @Success      201   {object}  CreateTransactionResponse
-// @Failure      400   {object}  ErrorResponse
+// @Param        body  body      models.CreateTransactionRequest  true  "Transaction payload"
+// @Success      201   {object}  models.CreateTransactionResponse
+// @Failure      400   {object}  models.ErrorResponse
 // @Router       /transactions [post]
 func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
 	log.Println("POST /transactions")
-	var req CreateTransactionRequest
+	var req models.CreateTransactionRequest
 	if err := c.BindJSON(&req); err != nil {
 		resp := gin.H{"error": err.Error()}
 		c.JSON(http.StatusBadRequest, resp)
 		log.Printf("Request: %+v", req)
 		log.Printf("Error: %v", err)
-		log.Printf("Response: %d %+v", http.StatusBadRequest, resp)
 		return
 	}
 	log.Printf("Request: %+v", req)
@@ -49,11 +48,10 @@ func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
 		resp := gin.H{"error": err.Error()}
 		c.JSON(http.StatusBadRequest, resp)
 		log.Printf("Error: %v", err)
-		log.Printf("Response: %d %+v", http.StatusBadRequest, resp)
 		return
 	}
 
-	resp := CreateTransactionResponse{
+	resp := models.CreateTransactionResponse{
 		TransactionID:   tx.ID,
 		AccountID:       tx.AccountId,
 		OperationTypeID: int(tx.OperationTypeId),
